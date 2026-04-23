@@ -1,0 +1,141 @@
+
+networks:
+  openwebui-network:
+    driver: bridge
+
+services:
+  openwebui-postgres:
+    container_name: openwebui-pg
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    # volumes:
+    #   - ./data/postgres-data-new:/var/lib/postgresql
+    networks:
+      - openwebui-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1"]
+      interval:  10s
+      timeout: 5s
+      retries: 10
+  openwebui:
+    image:  ghcr.io/open-webui/open-webui:latest
+    container_name: openwebui-webui
+    # env_file:
+    #   - .env
+    ports:
+      - "${OPENWEBUI_PORT:9090}"
+    environment:
+
+      # - OLLAMA_API_BASE_URL=http://ollama:11434
+
+      # - PIPELINES_URL=${PIPELINES_URL:-http://openwebui-pipelines:9099}
+      # - PIPELINES_URLS=http://openwebui-pipelines:9099
+      # - PIPELINES_API_KEY=${PIPELINES_API_KEY}
+
+      # Session Secret (für Cookies/JWT)
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+
+      # PostgreSQL-Connection-String
+      - DATABASE_URL=postgresql://{POSTGRES_USER}:${POSTGRES_PASSWORD}@openwebui-postgres:5432/${POSTGRES_DB}
+
+    depends_on:
+      - openwebui-postgres
+      # - ollama
+      # - openwebui-pipelines
+    # volumes:
+    #   - openwebui-data:/app/backend/data
+    networks:
+      - openwebui-network
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 5
+
+
+  # searxng:
+  #   image: searxng/searxng:latest
+  #   container_name: searxng
+  #   restart: unless-stopped
+  #   ports: 
+  #     - "8080:8080" # Host:Container
+  #   volumes:
+  #     # searxng-conf:  Docker-managed Volume für Konfiguration
+  #     - searxng-conf:/etc/searxng: rw
+  #     # searxng-cache: Docker-managed Volume für Cache
+  #     - searxng-cache:/var/cache/searxng:rw
+  #     # settings. yml: Host-Datei wird ins Container gemountet (read-only)
+  #     - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+  #   env_file:
+  #     - .env # Lädt alle Variablen aus .env
+  #   environment:
+  #     - SEARXNG_BASE_URL=${SEARXNG_BASE_URL} # Basis-URL (für externe Zugriffe)
+  #     - SEARXNG_REDIS_URL=redis://redis:6379/0 # Redis-Connection-String
+  #     - UWSGI_WORKERS=4 # Anzahl Worker-Prozesse
+  #     - UWSGI_THREADS=4 # Threads pro Worker
+  #     - BIND_ADDRESS=0.0.0.0:8080 # Lausche auf allen Interfaces
+  #   depends_on:
+  #     - redis # Redis muss laufen
+  #   networks:
+  #     - nginx_default
+  #   cap_drop: [ALL]
+  #   cap_add: [CHOWN, SETGID, SETUID] # Minimale Capabilities
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0: 11434 # Lausche auf allen Interfaces
+  #   volumes:
+  #     - ollama:/root/.ollama # Modelle & Config persistent speichern
+  #   networks:
+  #     - nginx_default
+  #   restart:  unless-stopped
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+  # openwebui-pipelines:
+  #   image: ghcr.io/open-webui/pipelines:main
+  #   container_name: openwebui-pipelines
+  #   # ports:
+  #   #   - "9099:9099" # Host:Container
+  #   # env_file:
+  #   #   - .env
+  #   environment:
+  #     # Pipeline-Requirements-Pfad (wird automatisch installiert)
+  #     - 'PIPELINES_REQUIREMENTS_PATH=/app/pipelines/requirements.txt'
+  #     - SEARXNG_URL=http://searxng:8080
+  #     # API-Key für Pipeline-Auth (Fallback wenn . env fehlt)
+  #     - PIPELINES_API_KEY=${PIPELINES_API_KEY}
+  #     - ENV=prod
+  #     - PORT=9099
+  #     - LOG_LEVEL=INFO
+  #   # volumes:
+  #   #   - ./openwebui-pipelines/pipelines:/app/pipelines:rw
+  #   depends_on:
+  #     - presidio-analyzer
+  #     - presidio-anonymizer
+  #     - german-ner-analyzer
+  #     - searxng
+  #   networks:
+  #     - nginx_default
+  #   restart:  unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9099/"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
